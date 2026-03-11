@@ -21,8 +21,9 @@ OBJDIR   = obj
 BINDIR   = bin
 
 SOURCES  := $(wildcard ../core/*.c) $(wildcard ./*.c)
+OBJECTS  := $(patsubst ../core/%.c,$(OBJDIR)/%.o,$(wildcard ../core/*.c)) \
+             $(patsubst ./%.c,$(OBJDIR)/%.o,$(wildcard ./*.c))
 INCLUDES := $(wildcard $(SRCDIR)/*.h)
-OBJECTS  := $(SOURCES:$(SRCDIR)/%.c=$(OBJDIR)/%.o)
 rm       = rm -f
 
 $(BINDIR)/$(TARGET): $(OBJECTS)
@@ -30,7 +31,12 @@ $(BINDIR)/$(TARGET): $(OBJECTS)
 	@$(LINKER) $@ $(LFLAGS) $(OBJECTS) -lm
 	@echo "Linking complete!"
 
-$(OBJECTS): $(OBJDIR)/%.o : $(SRCDIR)/%.c
+$(OBJDIR)/%.o : ../core/%.c
+	@mkdir -p $(OBJDIR)
+	@$(CC) $(CFLAGS) -c $< -o $@
+	@echo "Compiled "$<" successfully!"
+
+$(OBJDIR)/%.o : ./%.c
 	@mkdir -p $(OBJDIR)
 	@$(CC) $(CFLAGS) -c $< -o $@
 	@echo "Compiled "$<" successfully!"

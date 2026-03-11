@@ -1,1 +1,3 @@
-example_linux/bin/hsm_app.bin
+example_linux/bin/*.bin
+example_linux/obj/*.o
+
