@@ -15,14 +15,12 @@ struct em_simulate;
 enum em_simulate_signal_e
 {
     SIMULATE_SIG_NONE = HSM_USER_SIG,
-    SIMULATE_SIG_RECV , // 4
     SIMULATE_SIG_SEND ,
+    SIMULATE_SIG_RECV , 
+    SIMULATE_SIG_IDLE ,
     SIMULATE_SIG_MAX  ,
 };
 
-int em_simulate_create(void);
-
-int em_simulate_event_cfg(void);
 
 #ifdef __cplusplus
 }

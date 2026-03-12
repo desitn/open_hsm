@@ -1,15 +1,3 @@
-/*********************************************************************
-* @file   hsm.h
-* @brief  hierarchical state machine
-* @author destin.zhang@quectel.com
-* @date   2025-02-22
-*
-* @par EDIT HISTORY FOR MODULE
-* <table>
-* <tr><th>Date <th>Version <th>Author <th>Description
-* <tr><td>2025-02-22 <td>1.0 <td>destin.zhang <td> Init
-* </table>
-**********************************************************************/
 
 #ifndef __HSM_H__
 #define __HSM_H__

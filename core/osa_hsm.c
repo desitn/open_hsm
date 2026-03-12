@@ -1,17 +1,4 @@
-/********************************************************************
-* @file    osa_hsm.c
-* @brief   hierarchical state machine os layer
-
-* @author  destin.zhang@quectel.com
-* @date    2025-04-24
-*
-*
-* @par EDIT HISTORY FOR MODULE
-* <table>
-* <tr><th>Date <th>Version <th>Author <th>Description
-* <tr><td>2023-10-14 <td>1.0 <td>destin.zhang <td> Init
-* </table>
-**********************************************************************/
+#include <string.h>  
 #include "osa_hsm.h"
 
 #define UNUSED(x)                    (void)(x)
@@ -22,10 +9,10 @@
 
 static const char* hsm_sig_str[HSM_USER_SIG] =
 {
-    [HSM_SIG_INIT]  = "init",
-	[HSM_SIG_ENTRY] = "entry",
-	[HSM_SIG_EXIT]  = "exit",
-    [HSM_SIG_PERIOD]  = "period",
+    [HSM_SIG_INIT]   = "init",
+	[HSM_SIG_ENTRY]  = "entry",
+	[HSM_SIG_EXIT]   = "exit",
+    [HSM_SIG_PERIOD] = "period",
 };
 
 const char* oas_hsm_sig_str(int signal)
@@ -43,8 +30,10 @@ int osa_hsm_active_init(struct osa_hsm_active *hsm, struct hsm_state* init)
 }
 
 #if defined(__linux__)
+#include <errno.h>
 static void* osa_hsm_active_run(void *param)
 {
+    int ret = 0;
     char name[32] = {0};
     struct hsm_state* state = NULL;
     struct osa_hsm_active *hsm = NULL;   
@@ -78,7 +67,13 @@ static void* osa_hsm_active_run(void *param)
 
     while(1)
     {
-        mq_receive(disp->msg_q, (char *)&event, sizeof(struct hsm_event), NULL);
+        ret = mq_receive(disp->msg_q, (char *)&event, sizeof(struct hsm_event), NULL);
+        if (ret == -1) {
+            if (errno != EINTR) {
+                core_log("mq receive failed: %s\n", strerror(errno));
+            }
+            continue; 
+        }
         state = hsm->super.current;
         STATE_DISPATCH(state, &event);
     }

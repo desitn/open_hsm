@@ -1,16 +1,3 @@
-/*********************************************************************
-* @file   osa_hsm.h
-* @brief  hierarchical state machine os layer 
-* @author destin.zhang@quectel.com
-* @date   2025-02-22
-*
-* @par EDIT HISTORY FOR MODULE
-* <table>
-* <tr><th>Date <th>Version <th>Author <th>Description
-* <tr><td>2025-02-22 <td>1.0 <td>destin.zhang <td> Init
-* </table>
-**********************************************************************/
-
 
 #ifndef __OSA_HSM_H__
 #define __OSA_HSM_H__

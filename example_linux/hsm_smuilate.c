@@ -1,6 +1,24 @@
 #include "hsm_simulate.h"
 
-#define osa_log(msg, ...)	         printf(msg, ##__VA_ARGS__)
+#include <sys/time.h>
+#include <time.h>
+void hsm_timestamp(char *buf, size_t len)
+{
+    struct timeval tv;
+    struct tm tm_info;
+    if (buf == NULL || len < 24) return; 
+    gettimeofday(&tv, NULL);
+    localtime_r(&tv.tv_sec, &tm_info);
+    strftime(buf, len, "%Y-%m-%d %H:%M:%S", &tm_info);
+    snprintf(&buf[19], len - 19, ".%03ld", tv.tv_usec / 1000);
+}
+
+#define osa_log(msg, ...)            do {                                       \
+                                        char ts[32];                            \
+                                        hsm_timestamp(ts, sizeof(ts));          \
+                                        printf("[%s] " msg, ts, ##__VA_ARGS__); \
+                                     } while(0)
+
 #define hsm_log(str, msg,...)        osa_log("[hsm|%s] "msg"",str,##__VA_ARGS__)
 #define app_log(msg,...)             hsm_log("app", msg, ##__VA_ARGS__)
 
@@ -11,27 +29,38 @@
 struct hsm_simulate
 {
     struct osa_hsm_active super;
+
+    struct osa_hsm_active *watcher; 
     int cnt;
+    int send_cnt;
 };
 
 struct hsm_simulate g_simulate1  = {0};
 struct hsm_simulate g_simulate2  = {0};
 
-static int hsm_simulate_init(struct hsm_simulate* wrapper, struct hsm_event *event);
-static int hsm_simulate_working(struct hsm_simulate* wrapper, struct hsm_event *event);
+static int simulate_init_state_handler(struct hsm_simulate* simulate, struct hsm_event *event);
+static int simulate_working_state_handler(struct hsm_simulate* simulate, struct hsm_event *event);
+static int simulate_state_idle_handler(struct hsm_simulate* simulate, struct hsm_event *event);
 
 /** @note wrapper hsm state entry */
 static struct hsm_state simulate_init_state =
 {
     .name     = "init",
-    .handler  = (hsm_state_handler)&hsm_simulate_init,
+    .handler  = (hsm_state_handler)&simulate_init_state_handler,
     .parent   = NULL,
 };
 
 static struct hsm_state simulate_working_state =
 {
     .name     = "working",
-    .handler  = (hsm_state_handler)&hsm_simulate_working,
+    .handler  = (hsm_state_handler)&simulate_working_state_handler,
+    .parent   = NULL,
+};
+
+static struct hsm_state simulate_idle_state =
+{
+    .name     = "idle",
+    .handler  = (hsm_state_handler)&simulate_state_idle_handler,
     .parent   = NULL,
 };
 
@@ -40,6 +69,7 @@ static const char* g_sig_str[SIMULATE_SIG_MAX] =
 {
     [SIMULATE_SIG_RECV] = "recv",
     [SIMULATE_SIG_SEND] = "send",
+    [SIMULATE_SIG_IDLE] = "idle",
 };
 
 static const char* hsm_sig_str(int signal)
@@ -52,7 +82,7 @@ static const char* hsm_sig_str(int signal)
     return str;
 }
 
-static int hsm_simulate_init(struct hsm_simulate* simulate, struct hsm_event *event)
+static int simulate_init_state_handler(struct hsm_simulate* simulate, struct hsm_event *event)
 {
     int ret = 0;
 
@@ -67,31 +97,55 @@ static int hsm_simulate_init(struct hsm_simulate* simulate, struct hsm_event *ev
 
 }
 
-int hsm_simulate_event(struct hsm_simulate* simulate, int signal, char* data)
-{
-    int ret = 0;
-    struct hsm_event event = {0};
-    event.signal = signal;
-    event.data   = data;
-    ret = osa_hsm_active_event_post(&simulate->super, &event, 5);
-
-    return ret;
-}
 
 static int do_period(struct hsm_simulate* simulate, struct hsm_event *event)
 {
     int ret = 0;
-    struct osa_hsm_active *hsm = NULL;
+    struct osa_hsm_active *hsm     = NULL;
+    struct osa_hsm_active *watcher = NULL;
+    struct hsm_event post_event = {0};
 
-    hsm = &simulate->super;
+    hsm     = &simulate->super;
+    watcher = simulate->watcher;
+
+    post_event.signal = SIMULATE_SIG_SEND;
+    post_event.data   = NULL;
+    ret = osa_hsm_active_event_post(watcher, &post_event, 5);
+    app_log("%s send signal 'send' to watcher\r\n", hsm->name);
     if  (simulate->cnt++ > 10) {
         ret = osa_hsm_active_period(hsm, 0);
+        app_log("%s period stop\r\n", hsm->name);
     }
 
     return ret;
 }
 
-static int hsm_simulate_working(struct hsm_simulate* simulate, struct hsm_event *event)
+static int do_send(struct hsm_simulate* simulate, struct hsm_event *event)
+{
+    int ret = 0;
+    struct osa_hsm_active *hsm = NULL;
+    struct osa_hsm_active *watcher = NULL;
+    struct hsm_event post_event = {0};
+
+    hsm     = &simulate->super;
+    watcher = simulate->watcher;
+    post_event.signal = SIMULATE_SIG_RECV;
+    post_event.data   = NULL;
+    ret = osa_hsm_active_event_post(watcher, &post_event, 5);
+    app_log("%s send signal 'recv' to watcher\r\n", hsm->name);
+    simulate->send_cnt++;
+    if  (simulate->send_cnt%5 == 0) {
+        post_event.signal = SIMULATE_SIG_IDLE;
+        post_event.data   = NULL;
+        // self transsit to idle
+        ret = osa_hsm_active_event_post(hsm, &post_event, 5);
+        app_log("%s send signal 'idle' to self\r\n", hsm->name);
+    }
+
+    return ret;
+}
+
+static int simulate_working_state_handler(struct hsm_simulate* simulate, struct hsm_event *event)
 {
     int ret = 0;
 
@@ -104,11 +158,15 @@ static int hsm_simulate_working(struct hsm_simulate* simulate, struct hsm_event 
     case HSM_SIG_PERIOD:
         do_period(simulate, event);
         break;
+    case SIMULATE_SIG_SEND:
+        do_send(simulate, event);
+        break;
     case SIMULATE_SIG_RECV:
   
         break;
-    case SIMULATE_SIG_SEND:
- 
+    case SIMULATE_SIG_IDLE:
+        STATE_TRANSIT(&simulate_idle_state);
+        ret = STATE_ERROR();
         break;
     default:
         break;
@@ -117,7 +175,37 @@ static int hsm_simulate_working(struct hsm_simulate* simulate, struct hsm_event 
     return ret;
 }
 
-int hsm_simulate_create(struct hsm_simulate* simulate)
+static int simulate_state_idle_handler(struct hsm_simulate* simulate, struct hsm_event *event)
+{
+    int ret = 0;
+
+    STATE_ENTRY(&(simulate->super.super));
+    app_log("%s (%s) e:%d [%s] \n", simulate->super.name, STATE_NAME(), event->signal, hsm_sig_str(event->signal));
+    switch (event->signal)
+    {
+    case HSM_SIG_ENTRY:
+        break;
+    case HSM_SIG_PERIOD:
+        break;
+    default:
+        break;
+    }
+
+    return ret;
+}
+
+int simulate_event_post(struct hsm_simulate* simulate, int signal, char* data)
+{
+    int ret = 0;
+    struct hsm_event event = {0};
+    event.signal = signal;
+    event.data   = data;
+    ret = osa_hsm_active_event_post(&simulate->super, &event, 5);
+
+    return ret;
+}
+
+int simulate_create(struct hsm_simulate* simulate)
 {
     int ret = 0;
     struct osa_hsm_active *hsm = NULL;
@@ -126,7 +214,6 @@ int hsm_simulate_create(struct hsm_simulate* simulate)
 
     osa_hsm_active_init(hsm, &simulate_init_state);
     osa_hsm_active_start(hsm, SIMULATE_TASK_STACK_SIZE, SIMULATE_TASK_PRIO, SIMULATE_TASK_MSG_Q_SIZE);
-    osa_hsm_active_period(hsm, 1000);
 
     return ret;
 }
@@ -137,10 +224,13 @@ int main(int argc, char* argv[])
     int ret = 0;
 
     g_simulate1.super.name  = "thread1";
-    hsm_simulate_create(&g_simulate1);
+    g_simulate1.watcher = &g_simulate2.super;
+    simulate_create(&g_simulate1);
+    osa_hsm_active_period(&g_simulate1.super, 200);
 
     g_simulate2.super.name = "thread2";
-    hsm_simulate_create(&g_simulate2);
+    g_simulate2.watcher = &g_simulate1.super;
+    simulate_create(&g_simulate2);
 
     while (1) {
        sleep(10);
