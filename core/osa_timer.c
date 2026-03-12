@@ -58,13 +58,6 @@ int osa_timer_create(timer_t *timer_id, unsigned int period_ms,
     return 0;
 }
 
-/**
- * Stops the specified timer by disabling its periodic execution.
- * This function sets the timer's interval and value to zero, effectively stopping it.
- * 
- * @param timer_id The identifier of the timer to stop.
- * @return 0 on success, -1 on failure with an error message printed to stderr.
- */
 int osa_timer_stop(timer_t timer_id)
 {
     struct itimerspec its;
