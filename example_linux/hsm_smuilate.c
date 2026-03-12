@@ -1,16 +1,21 @@
 #include "hsm_simulate.h"
 
-#define SIMULATE_TASK_STACK_SIZE    (1024*20)
-#define SIMULATE_TASK_PRIO          (10)
-#define SIMULATE_TASK_MSG_Q_SIZE    (20)
+#define osa_log(msg, ...)	         printf(msg, ##__VA_ARGS__)
+#define hsm_log(str, msg,...)        osa_log("[hsm|%s] "msg"",str,##__VA_ARGS__)
+#define app_log(msg,...)             hsm_log("app", msg, ##__VA_ARGS__)
+
+#define SIMULATE_TASK_STACK_SIZE     (1024*10)
+#define SIMULATE_TASK_PRIO           (10)
+#define SIMULATE_TASK_MSG_Q_SIZE     (20)
 
 struct hsm_simulate
 {
     struct osa_hsm_active super;
- 
+    int cnt;
 };
 
-struct hsm_simulate g_simulate = {0};
+struct hsm_simulate g_simulate1  = {0};
+struct hsm_simulate g_simulate2  = {0};
 
 static int hsm_simulate_init(struct hsm_simulate* wrapper, struct hsm_event *event);
 static int hsm_simulate_working(struct hsm_simulate* wrapper, struct hsm_event *event);
@@ -41,23 +46,20 @@ static const char* hsm_sig_str(int signal)
 {
     const char* str = NULL;
     str =  (signal < SIMULATE_SIG_MAX) ? (g_sig_str[signal]) : ("unknown");
-    if(str == NULL){
-        str = "basic";
+    if (str == NULL) {
+        str = oas_hsm_sig_str(signal);
     }
     return str;
 }
 
 static int hsm_simulate_init(struct hsm_simulate* simulate, struct hsm_event *event)
 {
-
     int ret = 0;
-    struct hsm_active* entry = NULL;
 
-    simulate->super.msg_q    = -1;
-    simulate->super.task_ref = 0;
+    simulate->cnt = 0;
     /** @note transsit to working state */
-    entry = &(simulate->super.super);
-    printf("(%s) e:%d [%s] \n", entry->current->name, event->signal, hsm_sig_str(event->signal));
+    STATE_ENTRY(&(simulate->super.super));
+    app_log("(%s) e:%d [%s] \n", entry->current->name, event->signal, hsm_sig_str(event->signal));
     STATE_TRANSIT(&simulate_working_state);
     ret = entry->error;
 
@@ -65,13 +67,26 @@ static int hsm_simulate_init(struct hsm_simulate* simulate, struct hsm_event *ev
 
 }
 
-int hsm_simulate_event(int signal, char* data)
+int hsm_simulate_event(struct hsm_simulate* simulate, int signal, char* data)
 {
     int ret = 0;
     struct hsm_event event = {0};
     event.signal = signal;
     event.data   = data;
-    ret = osa_hsm_active_event_post(&g_simulate.super, &event, 5);
+    ret = osa_hsm_active_event_post(&simulate->super, &event, 5);
+
+    return ret;
+}
+
+static int do_period(struct hsm_simulate* simulate, struct hsm_event *event)
+{
+    int ret = 0;
+    struct osa_hsm_active *hsm = NULL;
+
+    hsm = &simulate->super;
+    if  (simulate->cnt++ > 10) {
+        ret = osa_hsm_active_period(hsm, 0);
+    }
 
     return ret;
 }
@@ -79,13 +94,15 @@ int hsm_simulate_event(int signal, char* data)
 static int hsm_simulate_working(struct hsm_simulate* simulate, struct hsm_event *event)
 {
     int ret = 0;
-    struct hsm_active* entry = NULL;
 
-    entry = &(simulate->super.super);
-    printf("(%s) e:%d [%s] \n", entry->current->name, event->signal, hsm_sig_str(event->signal));
+    STATE_ENTRY(&(simulate->super.super));
+    app_log("%s (%s) e:%d [%s] \n", simulate->super.name, STATE_NAME(), event->signal, hsm_sig_str(event->signal));
     switch (event->signal)
     {
     case HSM_SIG_ENTRY:
+        break;
+    case HSM_SIG_PERIOD:
+        do_period(simulate, event);
         break;
     case SIMULATE_SIG_RECV:
   
@@ -100,14 +117,16 @@ static int hsm_simulate_working(struct hsm_simulate* simulate, struct hsm_event 
     return ret;
 }
 
-int hsm_simulate_create(void)
+int hsm_simulate_create(struct hsm_simulate* simulate)
 {
     int ret = 0;
-    struct hsm_simulate* simulate = &g_simulate;
-    /** @note wrapper hierarchical state machine create */
-    simulate->super.name = "simulate";
-    osa_hsm_active_init(&simulate->super, &simulate_init_state);
-    osa_hsm_active_start(&simulate->super, SIMULATE_TASK_STACK_SIZE, SIMULATE_TASK_PRIO, SIMULATE_TASK_MSG_Q_SIZE);
+    struct osa_hsm_active *hsm = NULL;
+
+    hsm = &simulate->super;
+
+    osa_hsm_active_init(hsm, &simulate_init_state);
+    osa_hsm_active_start(hsm, SIMULATE_TASK_STACK_SIZE, SIMULATE_TASK_PRIO, SIMULATE_TASK_MSG_Q_SIZE);
+    osa_hsm_active_period(hsm, 1000);
 
     return ret;
 }
@@ -116,9 +135,16 @@ int hsm_simulate_create(void)
 int main(int argc, char* argv[])
 {
     int ret = 0;
-    hsm_simulate_create();
-    while(1){
-        sleep(1);
+
+    g_simulate1.super.name  = "thread1";
+    hsm_simulate_create(&g_simulate1);
+
+    g_simulate2.super.name = "thread2";
+    hsm_simulate_create(&g_simulate2);
+
+    while (1) {
+       sleep(10);
     }
+    
     return ret;
 }

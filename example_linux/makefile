@@ -9,8 +9,7 @@ CFLAGS   = -std=gnu99 -Wall -I.
 LINKER   = gcc -o
 
 # linking flags here
-#LFLAGS   = -L../development/lib
-LFLAGS   =
+LFLAGS   = -lrt
 
 # change these to set the proper directories where each files should be
 

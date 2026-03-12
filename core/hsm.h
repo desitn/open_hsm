@@ -21,12 +21,13 @@ extern "C" {
 #include "stdio.h"
 #include "stdint.h"
 
-/*  hsm basis signal enum */
+/*  hsm basic signal enum */
 enum hsm_signal
 {
+    HSM_SIG_INIT,
     HSM_SIG_ENTRY,
     HSM_SIG_EXIT,
-    HSM_SIG_INIT,
+    HSM_SIG_PERIOD, // timer tick period
 
     HSM_USER_SIG,
 };
@@ -64,7 +65,7 @@ struct hsm_active
 #define STATE_ERROR()            entry->error
 
 /** @note  state entry event */
-#define STATE_INIT(s)           (s)->handler(entry, &(struct hsm_event){HSM_SIG_ENTRY, NULL})
+#define STATE_INIT()             entry->current->handler(entry, &(struct hsm_event){HSM_SIG_ENTRY, NULL})
 
 /** @note fifo msg dispatch event(e) for current state(s) */
 #define STATE_DISPATCH(s, e)    (s)->handler(entry, e)
@@ -74,7 +75,7 @@ struct hsm_active
 #define STATE_TRANSIT(s)        do {                                                  \
     ((struct hsm_active*)entry)->histroy = ((struct hsm_active*)entry)->current;      \
     (((struct hsm_active*)entry)->current) = (s);                                     \
-    ((struct hsm_active*)entry)->error = STATE_INIT(s);                               \
+    ((struct hsm_active*)entry)->error = STATE_INIT();                                \
 } while(0)
 
 /** @note current state's super state handle event(e) */
