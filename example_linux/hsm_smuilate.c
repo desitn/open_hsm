@@ -2,6 +2,7 @@
 
 #include <sys/time.h>
 #include <time.h>
+#include <unistd.h>
 void hsm_timestamp(char *buf, size_t len)
 {
     struct timeval tv;
