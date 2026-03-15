@@ -2,5 +2,6 @@
     "C_Cpp.errorSquiggles": "disabled",
     "files.associations": {
         "osa_hsm.h": "c"
-    }
+    },
+    "cmake.sourceDirectory": "/home/parallels/code/open_hsm/examples/esp32"
 }

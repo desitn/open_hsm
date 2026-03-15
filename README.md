@@ -32,12 +32,18 @@ HSM（Hierarchical State Machine）是一个分层状态机框架，旨在提供
 │   ├── osa_sync.h              # 同步原语接口（互斥锁、信号量）
 │   ├── osa_queue.h             # 消息队列抽象接口
 │   ├── osa_timer.h             # 定时器抽象接口
-│   └── linux/                  # Linux 平台实现
-│       ├── osa_thread.c        # Linux 线程实现
-│       ├── osa_sync.c          # Linux 同步原语实现
-│       ├── osa_queue.c         # Linux 消息队列实现
-│       ├── osa_timer.c         # Linux 定时器实现
-│       └── osa_error.c         # Linux 错误码实现
+│   ├── linux/                  # Linux 平台实现
+│   │   ├── osa_thread.c        # Linux 线程实现
+│   │   ├── osa_sync.c          # Linux 同步原语实现
+│   │   ├── osa_queue.c         # Linux 消息队列实现
+│   │   ├── osa_timer.c         # Linux 定时器实现
+│   │   └── osa_error.c         # Linux 错误码实现
+│   └── esp32/                  # ESP32 (FreeRTOS) 平台实现
+│       ├── osa_thread.c        # FreeRTOS 任务封装
+│       ├── osa_sync.c          # FreeRTOS 互斥锁/信号量
+│       ├── osa_queue.c         # FreeRTOS 队列
+│       ├── osa_timer.c         # FreeRTOS 定时器
+│       └── osa_error.c         # ESP32 错误码实现
 ├── test/                       # 单元测试
 │   ├── unity/                  # Unity 测试框架
 │   │   ├── unity.h             # Unity 头文件
@@ -48,13 +54,18 @@ HSM（Hierarchical State Machine）是一个分层状态机框架，旨在提供
 │   ├── test_worker.c           # Worker Pool 测试
 │   └── makefile                # 测试构建脚本
 ├── examples/                   # 示例程序
-│   └── linux/                  # Linux 平台示例
-│       ├── hsm_simulate.h      # 基础示例头文件
-│       ├── hsm_simulate.c      # 基础 HSM 示例
-│       ├── hsm_worker.c        # HSM + Worker Pool 集成示例
-│       ├── worker_pool.c       # Worker Pool 功能演示
-│       ├── error_code_demo.c   # 错误码系统演示
-│       └── makefile            # 构建脚本
+│   ├── linux/                  # Linux 平台示例
+│   │   ├── hsm_simulate.h      # 基础示例头文件
+│   │   ├── hsm_simulate.c      # 基础 HSM 示例
+│   │   ├── hsm_worker.c        # HSM + Worker Pool 集成示例
+│   │   ├── worker_pool.c       # Worker Pool 功能演示
+│   │   ├── error_code_demo.c   # 错误码系统演示
+│   │   └── makefile            # 构建脚本
+│   └── esp32/                  # ESP32 平台示例
+│       ├── CMakeLists.txt      # ESP-IDF 项目配置
+│       └── main/
+│           ├── CMakeLists.txt  # 组件配置
+│           └── hsm_esp32_example.c  # ESP32 HSM + Worker Pool 示例
 └── docs/                       # 文档
     └── worker_design.md        # Worker Pool 设计文档
 ```
@@ -98,6 +109,38 @@ make error-demo
 ```bash
 make clean
 ```
+
+### ESP32 编译
+
+#### 环境要求
+- ESP-IDF 开发框架（v4.0+）
+- ESP32 开发板
+
+#### 编译步骤
+```bash
+cd examples/esp32
+
+# 设置 ESP-IDF 环境
+. $HOME/esp/esp-idf/export.sh
+
+# 配置项目（可选）
+idf.py menuconfig
+
+# 编译
+idf.py build
+
+# 烧录到设备
+idf.py -p /dev/ttyUSB0 flash
+
+# 查看串口输出
+idf.py -p /dev/ttyUSB0 monitor
+```
+
+#### ESP32 示例功能
+- LED 状态机控制（GPIO2）
+- Worker Pool 异步任务处理
+- 模拟按钮事件触发状态转换
+- 内存使用统计
 
 ### 平台选择编译
 
