@@ -8,7 +8,7 @@ extern "C" {
 
 #include <stdint.h>
 
-#include "../core/osa_hsm.h"
+#include "../../core/osa_hsm.h"
 
 struct em_simulate;
 

@@ -27,24 +27,36 @@ HSM（Hierarchical State Machine）是一个分层状态机框架，旨在提供
 │   └── osa_worker.h            # Worker Pool 接口
 ├── platform/                   # 平台抽象层
 │   ├── osa_platform.h          # 平台抽象主接口
+│   ├── osa_error.h             # 统一错误码系统
 │   ├── osa_thread.h            # 线程抽象接口
 │   ├── osa_sync.h              # 同步原语接口（互斥锁、信号量）
 │   ├── osa_queue.h             # 消息队列抽象接口
 │   ├── osa_timer.h             # 定时器抽象接口
-│   ├── linux/                  # Linux 平台实现
-│   │   ├── osa_thread.c        # Linux 线程实现
-│   │   ├── osa_sync.c          # Linux 同步原语实现
-│   │   ├── osa_queue.c         # Linux 消息队列实现
-│   │   └── osa_timer.c         # Linux 定时器实现
-│   └── rtos/                   # RTOS 平台实现（待实现）
-├── docs/                       # 文档
-│   └── worker_design.md        # Worker Pool 设计文档
-└── example_linux/              # Linux 示例
-    ├── hsm_simulate.h          # 基础示例头文件
-    ├── hsm_smuilate.c          # 基础 HSM 示例
-    ├── hsm_woker_example.c     # Worker Pool 示例
-    ├── worker_pool_test.c      # Worker Pool 测试
-    └── makefile                # 构建脚本
+│   └── linux/                  # Linux 平台实现
+│       ├── osa_thread.c        # Linux 线程实现
+│       ├── osa_sync.c          # Linux 同步原语实现
+│       ├── osa_queue.c         # Linux 消息队列实现
+│       ├── osa_timer.c         # Linux 定时器实现
+│       └── osa_error.c         # Linux 错误码实现
+├── test/                       # 单元测试
+│   ├── unity/                  # Unity 测试框架
+│   │   ├── unity.h             # Unity 头文件
+│   │   └── unity.c             # Unity 实现
+│   ├── test_main.c             # 测试主入口
+│   ├── test_error.c            # 错误码系统测试
+│   ├── test_sync.c             # 同步原语测试
+│   ├── test_worker.c           # Worker Pool 测试
+│   └── makefile                # 测试构建脚本
+├── examples/                   # 示例程序
+│   └── linux/                  # Linux 平台示例
+│       ├── hsm_simulate.h      # 基础示例头文件
+│       ├── hsm_simulate.c      # 基础 HSM 示例
+│       ├── hsm_worker.c        # HSM + Worker Pool 集成示例
+│       ├── worker_pool.c       # Worker Pool 功能演示
+│       ├── error_code_demo.c   # 错误码系统演示
+│       └── makefile            # 构建脚本
+└── docs/                       # 文档
+    └── worker_design.md        # Worker Pool 设计文档
 ```
 
 ## 安装与编译
@@ -56,33 +68,36 @@ HSM（Hierarchical State Machine）是一个分层状态机框架，旨在提供
 
 ### 编译步骤
 
-1. 进入示例目录并编译：
-   ```bash
-   cd example_linux
-   make
-   ```
+#### 1. 运行单元测试
+```bash
+cd test
+make
+./bin/test_runner.bin
+```
 
-2. 运行基础示例：
-   ```bash
-   ./bin/app.bin
-   ```
+#### 2. 运行示例程序
+```bash
+cd examples/linux
 
-3. 运行 Worker Pool 示例：
-   ```bash
-   make worker
-   ./bin/hsm_worker_example.bin
-   ```
+# 编译所有示例
+make
 
-4. 运行 Worker Pool 测试：
-   ```bash
-   make worker-test
-   ./bin/worker_pool_test
-   ```
+# 运行基础 HSM 示例
+./bin/hsm_app.bin
 
-5. 清理编译文件：
-   ```bash
-   make clean
-   ```
+# 运行 Worker Pool 示例
+make worker
+./bin/hsm_worker.bin
+
+# 运行错误码演示
+make error-demo
+./bin/error_code_demo.bin
+```
+
+#### 3. 清理编译文件
+```bash
+make clean
+```
 
 ### 平台选择编译
 
@@ -170,6 +185,45 @@ osa_timer_delete(timer);
 - `osa_worker_job_init()` - 初始化任务结构
 - `osa_worker_job_alloc()` - 从静态池分配任务
 - `osa_worker_job_free()` - 释放任务回静态池
+
+### 错误码系统 API (`osa_error.h`)
+
+统一错误码系统，替代直接使用整数返回值：
+
+```c
+// 错误码常量
+OSA_OK                      // 成功 (0)
+OSA_ERR_GENERIC             // 通用错误
+OSA_ERR_INVALID_PARAM       // 无效参数
+OSA_ERR_NULL_POINTER        // 空指针
+OSA_ERR_NOT_INITIALIZED     // 未初始化
+OSA_ERR_NO_MEMORY           // 内存不足
+OSA_ERR_TIMEOUT             // 超时
+OSA_ERR_MUTEX_LOCK          // 互斥锁错误
+OSA_ERR_THREAD_CREATE       // 线程创建失败
+OSA_ERR_QUEUE_FULL          // 队列满
+OSA_ERR_WORKER_INIT         // Worker Pool 初始化失败
+OSA_ERR_WORKER_QUEUE_FULL   // Worker Pool 队列满
+OSA_ERR_HSM_INIT            // HSM 初始化失败
+OSA_ERR_HSM_INVALID_STATE   // HSM 无效状态
+
+// 辅助函数
+const char* osa_error_string(int err);      // 获取错误描述
+const char* osa_error_category(int err);    // 获取错误分类
+bool osa_is_ok(int err);                    // 检查是否成功
+bool osa_is_err(int err);                   // 检查是否错误
+```
+
+使用示例：
+```c
+int err = osa_worker_pool_init(&pool, "test", 2, 8);
+if (osa_is_err(err)) {
+    printf("Failed: %s (category: %s)\n", 
+           osa_error_string(err), 
+           osa_error_category(err));
+    return -1;
+}
+```
 
 ## 使用示例
 

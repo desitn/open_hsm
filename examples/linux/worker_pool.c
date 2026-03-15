@@ -8,7 +8,7 @@
  */
 
 #include "osa_worker.h"
-#include "../platform/osa_sync.h"
+#include "../../platform/osa_sync.h"
 #include <stdio.h>
 #include <unistd.h>
 
