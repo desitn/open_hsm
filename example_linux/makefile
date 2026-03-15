@@ -1,7 +1,7 @@
 # project name (generate executable with this name)
-TARGET       = app.bin
-WP_TARGET    = hsm_worker_example.bin
-WP_TEST      = worker_pool_test
+TARGET       = hsm_app.bin
+WP_TARGET    = hsm_worker.bin
+WP_TEST      = worker_pool.bin
 
 CC       = gcc
 
@@ -35,11 +35,11 @@ SIM_SOURCES  := hsm_smuilate.c
 SIM_OBJECTS  := $(patsubst %.c,$(OBJDIR)/%.o,$(SIM_SOURCES))
 
 # Worker pool example objects
-WP_SOURCES   := hsm_woker_example.c
+WP_SOURCES   := hsm_worker.c
 WP_OBJECTS   := $(patsubst %.c,$(OBJDIR)/%.o,$(WP_SOURCES))
 
 # Worker pool test objects
-WP_TEST_SOURCES := worker_pool_test.c
+WP_TEST_SOURCES := worker_pool.c
 WP_TEST_OBJECTS := $(patsubst %.c,$(OBJDIR)/%.o,$(WP_TEST_SOURCES))
 
 INCLUDES := $(wildcard $(SRCDIR)/*.h)

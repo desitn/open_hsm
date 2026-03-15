@@ -1,16 +1,21 @@
 /**
- * @file threadpool_test.c
+ * @file worker_pool.c
  * @brief Simple test for worker pool functionality
+ *
+ * This example demonstrates proper usage of OSA (Operating System Abstraction)
+ * interfaces. All synchronization primitives use OSA APIs instead of native
+ * platform APIs, ensuring cross-platform compatibility.
  */
 
 #include "osa_worker.h"
+#include "../platform/osa_sync.h"
 #include <stdio.h>
 #include <unistd.h>
 
 #define UNUSED(x)  (void)(x)
 
 static int job_count = 0;
-static pthread_mutex_t result_lock = PTHREAD_MUTEX_INITIALIZER;
+static osa_mutex_t result_lock;  /* Use OSA mutex instead of pthread_mutex_t */
 
 static int test_job_func(void *ctx)
 {
@@ -19,9 +24,10 @@ static int test_job_func(void *ctx)
     usleep(500000);  /* 500ms */
     printf("[JOB] Completed job item %d\n", id);
 
-    pthread_mutex_lock(&result_lock);
+    /* Use OSA mutex APIs */
+    osa_mutex_lock(result_lock);
     job_count++;
-    pthread_mutex_unlock(&result_lock);
+    osa_mutex_unlock(result_lock);
 
     return id * 10;  /* Return some result */
 }
@@ -45,14 +51,22 @@ int main(int argc, char *argv[])
 
     printf("=== Worker Pool Test ===\n\n");
 
+    /* Initialize OSA mutex */
+    if (osa_mutex_create(&result_lock) != 0) {
+        printf("Failed to create mutex\n");
+        return -1;
+    }
+
     /* Initialize worker pool */
     if (osa_worker_pool_init(&pool, "test_pool", 2, 16) != 0) {
         printf("Failed to init worker pool\n");
+        osa_mutex_destroy(result_lock);
         return -1;
     }
 
     if (osa_worker_pool_start(&pool) != 0) {
         printf("Failed to start worker pool\n");
+        osa_mutex_destroy(result_lock);
         return -1;
     }
 
@@ -93,6 +107,9 @@ int main(int argc, char *argv[])
 
     /* Stop worker pool */
     osa_worker_pool_stop(&pool);
+
+    /* Destroy OSA mutex */
+    osa_mutex_destroy(result_lock);
 
     printf("\n=== Test Complete ===\n");
 
